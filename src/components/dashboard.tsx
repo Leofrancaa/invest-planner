@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { HoldingEditor } from "@/components/holding-editor";
+import { AllocationBreakdown } from "@/components/allocation-breakdown";
 import type { User } from "@supabase/supabase-js";
 import {
   allocate,
@@ -34,6 +36,9 @@ const monthNow = () =>
 export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<Portfolio>(initialPortfolio);
   const [loaded, setLoaded] = useState(false);
+  const [savedBalances, setSavedBalances] = useState<Record<string, number>>(
+    Object.fromEntries(initialPortfolio.holdings.map((h) => [h.id, h.value])),
+  );
   const [tab, setTab] = useState("Overview");
   const [amount, setAmount] = useState(500);
   const [month, setMonth] = useState("");
@@ -63,6 +68,9 @@ export default function Dashboard() {
           const p: unknown = JSON.parse(stored);
           if (validatePortfolio(p)) {
             setPortfolio(p);
+            setSavedBalances(
+              Object.fromEntries(p.holdings.map((h) => [h.id, h.value])),
+            );
             setAmount(p.monthlyAmount);
           } else
             setStatus(
@@ -139,7 +147,15 @@ export default function Dashboard() {
     };
   }, [symbols, quoteVersion]);
 
-  const total = portfolio.holdings.reduce((s, h) => s + h.value, 0);
+  const total = portfolio.holdings.reduce(
+    (s, h) => s + (Number.isFinite(h.value) ? h.value : 0),
+    0,
+  );
+  const savedTotal = Object.values(savedBalances).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  const balanceChange = total - savedTotal;
   const targetTotal = portfolio.holdings.reduce((s, h) => s + h.target, 0);
   const valid =
     validatePortfolio(portfolio) &&
@@ -228,6 +244,9 @@ export default function Dashboard() {
         localStorage.setItem(storageKey, JSON.stringify(portfolio));
         setStatus("Plan saved on this device.");
       }
+      setSavedBalances(
+        Object.fromEntries(portfolio.holdings.map((h) => [h.id, h.value])),
+      );
       setDirty(false);
     } catch (error) {
       setStatus(
@@ -259,6 +278,11 @@ export default function Dashboard() {
         if (!validatePortfolio(data.data))
           throw new Error("Cloud plan has invalid data.");
         setPortfolio(data.data);
+        setSavedBalances(
+          Object.fromEntries(
+            data.data.holdings.map((h: Holding) => [h.id, h.value]),
+          ),
+        );
         setAmount(data.data.monthlyAmount);
         setCloudVersion(data.updated_at);
       }
@@ -598,113 +622,69 @@ export default function Dashboard() {
                   + Add asset
                 </button>
               </div>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name / ticker</th>
-                      <th>Asset class</th>
-                      <th>Current value (BRL)</th>
-                      <th>Target (%)</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {portfolio.holdings.map((h) => (
-                      <tr key={h.id}>
-                        <td>
-                          <input
-                            aria-label={`Name ${h.id}`}
-                            value={h.name}
-                            maxLength={100}
-                            onChange={(e) =>
-                              updateHolding(h.id, { name: e.target.value })
-                            }
-                          />
-                          <input
-                            className="ticker-input"
-                            aria-label={`Ticker ${h.id}`}
-                            placeholder="Optional B3 ticker"
-                            value={h.ticker}
-                            maxLength={12}
-                            onChange={(e) =>
-                              updateHolding(h.id, {
-                                ticker: e.target.value.toUpperCase(),
-                              })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <select
-                            aria-label={`Category ${h.id}`}
-                            value={h.category}
-                            onChange={(e) =>
-                              updateHolding(h.id, {
-                                category: e.target.value as Holding["category"],
-                              })
-                            }
-                          >
-                            {categories.map((c) => (
-                              <option key={c}>{c}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Balance ${h.id}`}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={h.value}
-                            onChange={(e) =>
-                              updateHolding(h.id, {
-                                value:
-                                  e.target.value === ""
-                                    ? NaN
-                                    : Number(e.target.value),
-                              })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <input
-                            aria-label={`Target ${h.id}`}
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={h.target}
-                            onChange={(e) =>
-                              updateHolding(h.id, {
-                                target:
-                                  e.target.value === ""
-                                    ? NaN
-                                    : Number(e.target.value),
-                              })
-                            }
-                          />
-                        </td>
-                        <td>
-                          <button
-                            className="text-button danger"
-                            disabled={portfolio.holdings.length === 1}
-                            onClick={() => {
-                              setRemoved(h);
-                              update({
-                                ...portfolio,
-                                holdings: portfolio.holdings.filter(
-                                  (row) => row.id !== h.id,
-                                ),
-                              });
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="portfolio-summary" aria-live="polite">
+                <div>
+                  <span>Current portfolio</span>
+                  <strong>{money(total)}</strong>
+                </div>
+                <div>
+                  <span>Change since last save</span>
+                  <strong>
+                    {balanceChange > 0 ? "+" : ""}
+                    {money(balanceChange)}
+                  </strong>
+                </div>
+                <div>
+                  <span>Next contribution</span>
+                  <strong>{money(Number.isFinite(amount) ? amount : 0)}</strong>
+                </div>
+              </div>
+              <label className="field portfolio-method">
+                Allocation method
+                <select
+                  value={mode}
+                  onChange={(e) =>
+                    setMode(e.target.value as "target" | "rebalance")
+                  }
+                >
+                  <option value="rebalance">
+                    Prioritize positions below target
+                  </option>
+                  <option value="target">Follow target percentages</option>
+                </select>
+              </label>
+              <p className="helper">
+                Balance changes update the total, current shares and
+                contribution suggestions immediately. Targets stay as you set
+                them. Changes can include deposits, withdrawals or price
+                movements; they are not calculated profits.
+              </p>
+              <div className="holdings-grid">
+                {portfolio.holdings.map((h) => (
+                  <HoldingEditor
+                    key={h.id}
+                    holding={h}
+                    savedValue={savedBalances[h.id] ?? 0}
+                    total={total}
+                    suggestion={
+                      valid
+                        ? (allocation.find((row) => row.id === h.id)
+                            ?.allocation ?? 0)
+                        : null
+                    }
+                    canRemove={portfolio.holdings.length > 1}
+                    onChange={(patch) => updateHolding(h.id, patch)}
+                    onRemove={() => {
+                      setRemoved(h);
+                      update({
+                        ...portfolio,
+                        holdings: portfolio.holdings.filter(
+                          (row) => row.id !== h.id,
+                        ),
+                      });
+                    }}
+                  />
+                ))}
               </div>
               <div className="section-heading mt-4">
                 <span>
@@ -1014,50 +994,6 @@ export default function Dashboard() {
   );
 
   function allocationTable() {
-    return (
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Asset</th>
-              <th>Current / target</th>
-              <th>Contribution share</th>
-              <th>Suggested amount</th>
-              <th>After contribution</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allocation.map((h) => (
-              <tr key={h.id}>
-                <td>
-                  <strong>{h.ticker || h.name}</strong>
-                  <small className="block muted">{h.category}</small>
-                </td>
-                <td>
-                  {h.currentPercent.toFixed(1)}% / {h.target}%
-                </td>
-                <td>
-                  {amount ? ((h.allocation / amount) * 100).toFixed(1) : "0.0"}%
-                </td>
-                <td className="allocation-value">{money(h.allocation)}</td>
-                <td>{h.afterPercent.toFixed(1)}%</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3}>Total contribution</td>
-              <td>{money(allocation.reduce((s, h) => s + h.allocation, 0))}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-        {!valid && (
-          <p className="helper">
-            Correct portfolio values to calculate this breakdown.
-          </p>
-        )}
-      </div>
-    );
+    return <AllocationBreakdown rows={allocation} valid={valid} />;
   }
 }

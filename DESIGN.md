@@ -8,6 +8,7 @@ A personal allocation workbench for Brazilian investors. Planning only; never ex
 
 Blue ink sidebar, pale slate canvas, white surfaces, teal contribution accent. Allocation bars are the signature: current and target positions are readable together. Runtime tokens live in src/app/globals.css; this document describes their roles.
 System sans for interface and restrained Georgia display headings. Tabular numerals for money. Rounded 16px panels, quiet borders, natural document scrolling.
+Position editing uses a responsive card grid with grouped identity, balance and target fields. On phones, contribution tables become cards; all five navigation destinations remain visible. Summary cards use a full-width portfolio total and two compact supporting metrics.
 
 ## Behavior ownership
 

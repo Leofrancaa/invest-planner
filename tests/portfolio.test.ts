@@ -33,6 +33,16 @@ test("zero portfolio follows targets in deficit mode", () => {
     allocate(holdings, 500, "target"),
   );
 });
+test("balance changes adapt suggested contributions without changing targets", () => {
+  const before = allocate(initialPortfolio.holdings, 500, "rebalance");
+  const holdings = initialPortfolio.holdings.map(h => h.id === "itau" ? { ...h, value: 300 } : h);
+  const after = allocate(holdings, 500, "rebalance");
+  assert.equal(after.find(h => h.id === "itau")?.allocation, 0);
+  assert.ok((before.find(h => h.id === "itau")?.allocation ?? 0) > 0);
+  assert.equal(after.find(h => h.id === "itau")?.target, 6);
+  assert.equal(Math.round(after.reduce((sum, h) => sum + h.allocation, 0) * 100), 50000);
+  assert.ok(after.find(h => h.id === "itau")!.currentPercent > 0);
+});
 test("invalid financial inputs cannot produce a plan", () => {
   assert.throws(() => allocate(initialPortfolio.holdings, -1, "target"));
   assert.throws(() =>

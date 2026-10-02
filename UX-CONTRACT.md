@@ -14,5 +14,6 @@
 ## Rules
 
 Portfolio targets must total 100%. Entered balances are authoritative; quotes cannot update them. Monetary allocation uses cent rounding. Removing a position has Undo until the next removal. Planned contributions do not execute transactions or mutate balances.
+Changing a balance immediately updates the portfolio total, current percentages and deficit-based contribution suggestions. Targets never change implicitly. The balance comparison references the last successfully saved or loaded balances, resets only after successful persistence, and is not labeled as investment profit. HoldingEditor owns repeated position fields; AllocationBreakdown owns desktop tables and mobile cards.
 Save is explicit. Invalid drafts cannot be saved. Browser unload warns about unsaved changes. Tabs preserve draft state. Cloud loading is blocked for unsaved drafts. Account data loads explicitly and uses version checks for concurrent updates. No automatic local-to-cloud replacement.
 English interface, BRL formatting, America/Sao_Paulo timestamps. Native month and select popups intentionally follow platform presentation. Lists are bounded to 50 positions, 120 monthly overrides and 12 quote symbols. Portfolio input errors are shown in a persistent alert; cloud errors preserve drafts.

@@ -16,6 +16,12 @@ assert.equal(
 await page
   .getByRole("spinbutton", { name: "Balance btg", exact: true })
   .fill("900");
+assert.match(await page.locator(".portfolio-summary").innerText(), /79\.57/);
+assert.equal(await page.getByRole("spinbutton", { name: "Target btg", exact: true }).inputValue(), "60");
+const itauCard = page.getByRole("article", { name: "Position itau", exact: true });
+await page.getByRole("spinbutton", { name: "Balance itau", exact: true }).fill("300");
+assert.match(await itauCard.locator(".allocation-value").innerText(), /0\.00/);
+await page.getByRole("spinbutton", { name: "Balance itau", exact: true }).fill("0");
 await page.getByRole("button", { name: "Save changes" }).click();
 await page
   .getByRole("status")
@@ -29,6 +35,7 @@ assert.equal(
     .inputValue(),
   "900",
 );
+assert.match(await page.locator(".portfolio-summary").innerText(), /Change since last save\s+R\$\s*0\.00/);
 await page
   .getByRole("spinbutton", { name: "Target btg", exact: true })
   .fill("59");
@@ -54,6 +61,21 @@ await page.getByRole("button", { name: "Overview", exact: true }).click();
 await page.screenshot({ path: "tests/desktop.png", fullPage: true });
 await page.setViewportSize({ width: 390, height: 844 });
 await page.screenshot({ path: "tests/mobile.png", fullPage: true });
+for (const width of [320, 390, 768]) {
+  await page.setViewportSize({ width, height: 844 });
+  await page.getByRole("button", { name: "Portfolio", exact: true }).click();
+  assert.equal(await page.getByRole("article", { name: "Position btg", exact: true }).isVisible(), true);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  for (const name of ["Overview", "Portfolio", "Contributions", "Market", "Account"]) {
+    const bounds = await page.getByRole("button", { name, exact: true }).boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
+  }
+}
+await page.setViewportSize({ width: 390, height: 844 });
+await page.screenshot({ path: "tests/mobile-portfolio.png", fullPage: true });
+await page.getByRole("button", { name: "Overview", exact: true }).click();
+assert.equal(await page.locator(".allocation-cards").isVisible(), true);
+assert.equal(await page.locator(".allocation-desktop").isVisible(), false);
 assert.equal(
   await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
